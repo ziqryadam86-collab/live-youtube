@@ -2,7 +2,6 @@ name: Build Custom HLS Master Playlist
 
 on:
   schedule:
-    # Jalan automatik setiap 5 minit untuk elak link luput
     - cron: '*/5 * * * *'
   workflow_dispatch:
 
@@ -14,13 +13,17 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install yt-dlp & jq
+      - name: Install Deno (JS Runtime) & yt-dlp
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
+          # Install Deno JS Engine untuk elak sekatan yt-dlp
+          curl -fsSL https://deno.land/install.sh | sh
+          echo "/home/runner/.deno/bin" >> $GITHUB_PATH
+
+          # Install yt-dlp terkini
           sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      - name: Setup Cookies
+      - name: Setup Cookies File
         env:
           COOKIES_DATA: ${{ secrets.YOUTUBE_COOKIES }}
         run: |
@@ -28,13 +31,13 @@ jobs:
 
       - name: Extract Video and Audio Links
         run: |
-          # Ambil URL format video sahaja (itag 312 / 299 / bestvideo)
-          VIDEO_URL=$(yt-dlp --cookies cookies.txt -f "bestvideo" -g "https://www.youtube.com/live/dEu_05KCnVA" | head -n 1)
+          # Dapatkan URL Video
+          VIDEO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "bestvideo[ext=mp4]/bestvideo" -g "https://www.youtube.com/live/dEu_05KCnVA" | head -n 1)
 
-          # Ambil URL format audio sahaja (itag 251 / 140 / bestaudio)
-          AUDIO_URL=$(yt-dlp --cookies cookies.txt -f "bestaudio" -g "https://www.youtube.com/live/dEu_05KCnVA" | tail -n 1)
+          # Dapatkan URL Audio
+          AUDIO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "bestaudio[ext=m4a]/bestaudio" -g "https://www.youtube.com/live/dEu_05KCnVA" | tail -n 1)
 
-          # Cipta Master Playlist HLS (Plan B)
+          # Cipta/Timpa Master Playlist HLS (live.m3u8)
           cat <<EOF > live.m3u8
           #EXTM3U
           #EXT-X-VERSION:4
