@@ -1,0 +1,54 @@
+name: Build Custom HLS Master Playlist
+
+on:
+  schedule:
+    # Jalan automatik setiap 5 minit untuk elak link luput
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  build-playlist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install yt-dlp & jq
+        run: |
+          sudo apt-get update && sudo apt-get install -y jq
+          sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
+
+      - name: Setup Cookies
+        env:
+          COOKIES_DATA: ${{ secrets.YOUTUBE_COOKIES }}
+        run: |
+          echo "$COOKIES_DATA" > cookies.txt
+
+      - name: Extract Video and Audio Links
+        run: |
+          # Ambil URL format video sahaja (itag 312 / 299 / bestvideo)
+          VIDEO_URL=$(yt-dlp --cookies cookies.txt -f "bestvideo" -g "https://www.youtube.com/live/dEu_05KCnVA" | head -n 1)
+
+          # Ambil URL format audio sahaja (itag 251 / 140 / bestaudio)
+          AUDIO_URL=$(yt-dlp --cookies cookies.txt -f "bestaudio" -g "https://www.youtube.com/live/dEu_05KCnVA" | tail -n 1)
+
+          # Cipta Master Playlist HLS (Plan B)
+          cat <<EOF > live.m3u8
+          #EXTM3U
+          #EXT-X-VERSION:4
+          #EXT-X-INDEPENDENT-SEGMENTS
+          #EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID="program_audio",NAME="YouTube Audio",DEFAULT=YES,AUTOSELECT=YES,URI="$AUDIO_URL"
+          #EXT-X-STREAM-INF:BANDWIDTH=3405200,RESOLUTION=1280x720,AUDIO="program_audio"
+          $VIDEO_URL
+          EOF
+
+      - name: Commit and Push to Github
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add live.m3u8
+          git commit -m "Auto-update HLS master playlist [skip ci]" || exit 0
+          git push
+          
