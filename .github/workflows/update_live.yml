@@ -15,11 +15,9 @@ jobs:
 
       - name: Install Deno (JS Runtime) & yt-dlp
         run: |
-          # Install Deno JS Engine untuk elak sekatan yt-dlp
           curl -fsSL https://deno.land/install.sh | sh
           echo "/home/runner/.deno/bin" >> $GITHUB_PATH
 
-          # Install yt-dlp terkini
           sudo wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
@@ -31,13 +29,13 @@ jobs:
 
       - name: Extract Video and Audio Links
         run: |
-          # Dapatkan URL Video
-          VIDEO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "bestvideo[ext=mp4]/bestvideo" -g "https://www.youtube.com/live/dEu_05KCnVA" | head -n 1)
+          # Dapatkan URL Stream Video (Format hls / 96 / best)
+          VIDEO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "bv*/b" -g "https://www.youtube.com/live/dEu_05KCnVA" | head -n 1)
 
-          # Dapatkan URL Audio
-          AUDIO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "bestaudio[ext=m4a]/bestaudio" -g "https://www.youtube.com/live/dEu_05KCnVA" | tail -n 1)
+          # Dapatkan URL Stream Audio (Format hls / ba / best)
+          AUDIO_URL=$(yt-dlp --cookies cookies.txt --js-runtimes deno -f "ba*/b" -g "https://www.youtube.com/live/dEu_05KCnVA" | tail -n 1)
 
-          # Cipta/Timpa Master Playlist HLS (live.m3u8)
+          # Cipta Master Playlist HLS
           cat <<EOF > live.m3u8
           #EXTM3U
           #EXT-X-VERSION:4
